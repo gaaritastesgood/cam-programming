@@ -1,0 +1,9 @@
+name: occwl
+channels:
+  - conda-forge
+  - lambouj
+  - defaults
+dependencies:
+  - numpy
+  - networkx
+  - occwl
