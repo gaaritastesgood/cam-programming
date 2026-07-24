@@ -1,4 +1,3 @@
-from curses import raw
 from occwl.face import Face
 from occwl.graph import face_adjacency
 from occwl.compound import Compound
