@@ -15,7 +15,7 @@ import numpy as np
 def load_solid(step_path):
     #comp is a Compound object, basically like a set of shapes. 
     comp = Compound.load_from_step(step_path)
-    #i turn the comp object a python list of shape objects by convention, but really i expect one shape 
+    #i turn the comp object a python list of shapes ( by convention, but really i expect one shape)
     #because why does one file have more than one shape?
     solids = list(comp.solids())
 
@@ -35,7 +35,7 @@ def load_solid(step_path):
 
 
 def raw_graph():
-    # i know this is hardcoded
+    # i know this file is hardcoded
     solid = load_solid("cad-files/box.step")
     #turns the shape into an attributed adjacency graph. nodes are faces connected by edges -- both carry attributes
     #this is a directed graph, though, so it double counts edges. meaning edge faces(1,2) and edge faces(2,1) are counted twice
@@ -48,7 +48,8 @@ def raw_graph():
 #The angle threshold below which two faces are called tangent instead of sharp is 5°
 TANGENT_TOL = math.radians(5)
 
-
+#this is just finding values that are needed to calculate the face normal and get a sample point on a shape. 
+#we need those two for other calculations. surprised they dont come out of the box in this library
 def interior_uv(face, face_id, grid=7):
     box = face.uv_bounds()
     lo, hi = box.min_point(), box.max_point()
@@ -74,8 +75,7 @@ def face_sample(face, face_id, grid=7):
     point  = tuple(float(x) for x in face.point(uv))
     return normal, point
 
-# just making a new graph with our desired schema, also making it undirected
-#this tbh is our most important part -- figuring out the graph representation and then defining Sub-Machining Regions
+#making a new graph with a schema of our choosing, also making it undirected
 def new_graph(rg):
     ng = nx.Graph()
     #n is node index d is the node dict {face:face object}
@@ -108,7 +108,3 @@ ng = new_graph(rg)
 
 print(dict(ng.nodes(data=True)))
 print(dict(ng.adj))
-
-#2 dicts, one adjacency dict: face and adjacent faces, and then one dict for face: attributes
-#add_node adds to the node dict and presumably creates a node key in the adj list, and add_edge adds a value to adj list/dict
-#undirected graph writes, when you add edge, node[1][2]= {}, and node [2][1] = {}, DiGraph only writes the one
