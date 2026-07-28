@@ -107,5 +107,6 @@ def new_graph(rg):
 rg = raw_graph()
 ng = new_graph(rg)
 
+#checking if everything looks good
 print(dict(ng.nodes(data=True)))
 print(dict(ng.adj))
