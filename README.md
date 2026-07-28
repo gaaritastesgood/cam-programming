@@ -15,7 +15,7 @@ conda activate occwl
 python main.py
 ```
 
-Expects `cad-files/block.step` (included).
+Expects `cad-files/block.step [OR] box.step` (included).
 
 ## What main.py does
 
