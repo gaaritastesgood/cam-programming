@@ -1,9 +1,9 @@
-from occwl.face import Face
 from occwl.graph import face_adjacency
 from occwl.compound import Compound
 from occwl.edge_data_extractor import EdgeDataExtractor
 import networkx as nx
 import math
+import numpy as np
 
 
 #this is taking a super simple step file and turning it into a labeled adjacency 
@@ -36,7 +36,7 @@ def load_solid(step_path):
 
 def raw_graph():
     # i know this is hardcoded
-    solid = load_solid("cad-files/block.step")
+    solid = load_solid("cad-files/box.step")
     #turns the shape into an attributed adjacency graph. nodes are faces connected by edges -- both carry attributes
     #this is a directed graph, though, so it double counts edges. meaning edge faces(1,2) and edge faces(2,1) are counted twice
     raw_graph = face_adjacency(solid)
@@ -48,18 +48,44 @@ def raw_graph():
 #The angle threshold below which two faces are called tangent instead of sharp is 5°
 TANGENT_TOL = math.radians(5)
 
+
+def interior_uv(face, face_id, grid=7):
+    box = face.uv_bounds()
+    lo, hi = box.min_point(), box.max_point()
+
+    mid = (lo + hi) / 2
+    if face.inside((mid[0], mid[1])):
+        return (mid[0], mid[1])
+
+    u_min, u_max = lo[0], hi[0]
+    v_min, v_max = lo[1], hi[1]
+    for i in range(grid):
+        u = u_min + (u_max - u_min) * i / (grid - 1)
+        for j in range(grid):
+            v = v_min + (v_max - v_min) * j / (grid - 1)
+            if face.inside((u, v)):
+                return (u, v)
+
+    raise ValueError(f"face {face_id}: no interior uv found on {grid}x{grid} grid")
+
+def face_sample(face, face_id, grid=7):
+    uv = interior_uv(face, face_id, grid)
+    normal = tuple(float(x) for x in face.normal(uv))
+    point  = tuple(float(x) for x in face.point(uv))
+    return normal, point
+
 # just making a new graph with our desired schema, also making it undirected
 #this tbh is our most important part -- figuring out the graph representation and then defining Sub-Machining Regions
 def new_graph(rg):
-    solid = load_solid("cad-files/block.step")
     ng = nx.Graph()
     #n is node index d is the node dict {face:face object}
-    for n,d in rg.nodes(data = True):
-        ng.add_node(n, stype=d["face"].surface_type(),
-               tad=[], role=None, smr=None)
+    for n, d in rg.nodes(data=True):
+        face = d["face"]
+        ng.add_node(n, stype=face.surface_type(), tad=[], role=None, smr=None,
+                    normal=face_sample(face, n)[0], area = face.area(), sample = face_sample(face, n)[1])
     #a,b are node indices (so like graph[0][1] is the edge connecting the two faces)
     #c is edge dict {edge:edge object, edge:index: number}
-    for a,b,c in rg.edges(data=True):
+    for a, b, c in rg.edges(data=True):
         if a > b:
             continue
         e = c["edge"]
@@ -76,9 +102,12 @@ def new_graph(rg):
         ng.add_edge(a, b, convexity=cvx, length=e.length())
     return ng
 
+
 rg = raw_graph()
 ng = new_graph(rg)
 
+print(dict(ng.nodes(data=True)))
+print(dict(ng.adj))
 
 #2 dicts, one adjacency dict: face and adjacent faces, and then one dict for face: attributes
 #add_node adds to the node dict and presumably creates a node key in the adj list, and add_edge adds a value to adj list/dict
