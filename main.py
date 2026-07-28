@@ -6,8 +6,9 @@ import math
 import numpy as np
 
 
-#this is taking a super simple step file and turning it into a labeled adjacency 
-#graph - nodes are "faces," edges are what connects them
+#this is taking a super simple step file and turning it into an attributed adjacency 
+#graph - nodes are "faces," edges are what connects them. metadata about the two help us reason about the shape
+#in the future when we want to identify "features" and such
 
 #load the example step file. assert one solid and the file is "closed" (basically the file is a real shape)
 
