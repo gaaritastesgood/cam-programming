@@ -1,6 +1,6 @@
 # cam-programming
 
-Builds a labeled face adjacency graph from a STEP file. Nodes are B-rep faces, edges are where they meet. Each carries attributes (surface type, convexity, geometry) that downstream steps use for tool access direction assignment and sub-machining region detection.
+Builds a labeled face adjacency graph from a STEP (CAD) file. Nodes are B-rep faces, edges are where they meet. Each carries attributes (surface type, convexity, geometry) that downstream steps use for tool access direction assignment and sub-machining region detection.
 
 ## Setup
 
