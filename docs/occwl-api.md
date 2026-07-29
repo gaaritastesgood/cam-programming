@@ -27,7 +27,7 @@ dg = face_adjacency(solid)   # -> nx.DiGraph, or None if non-manifold/open
 
 **DiGraph with reciprocal arcs** — each B-rep edge creates both `(a,b)` and `(b,a)`. Skip duplicates with `if a > b: continue`.
 
-## Convexity
+## Edge Convexity
 
 ```python
 from occwl.edge_data_extractor import EdgeDataExtractor, EdgeConvexity
@@ -41,7 +41,7 @@ if ex.good:
 
 **SMOOTH is ambiguous.** It collapses concave-tangent (fillet into pocket — keep) and convex-tangent (blend on outer corner — remove). You disambiguate by perturbing `ex.left_uvs`/`ex.right_uvs` into each face's interior, re-evaluating normals there, and rerunning the cross-product-dot-tangent sign test.
 
-## Face geometry — for the enrichment pass
+## Face geometry
 
 ```python
 f = dg.nodes[n]["face"]
