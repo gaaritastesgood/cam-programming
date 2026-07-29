@@ -1,6 +1,6 @@
 # occwl API — what we use
 
-## Load
+## Load a CAD File
 
 ```python
 from occwl.compound import Compound
@@ -11,7 +11,7 @@ solid.is_closed()   # True or adjacency will lie
 solid.valid()       # True or geometry is broken
 ```
 
-## Face adjacency graph
+## Represent the shape as an adjacency graph
 
 ```python
 from occwl.graph import face_adjacency
