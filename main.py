@@ -2,6 +2,7 @@ from contextlib import redirect_stdout, redirect_stderr
 import argparse
 import math
 import os
+import signal
 import sys
 
 import networkx as nx
@@ -10,7 +11,7 @@ from occwl.compound import Compound
 from occwl.edge_data_extractor import EdgeDataExtractor
 from occwl.graph import face_adjacency
 from occwl.viewer import Viewer
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 
 #this is taking a super simple step file and turning it into an attributed adjacency 
@@ -66,24 +67,28 @@ def raw_graph(solid):
 
 def show_viewer(rg, ng):
     """Rotatable window: each face colored + labeled with the same id as the printout."""
-    # pythonocc bug on some builds: centerOnScreen passes floats to QWidget.move
     _move = QtWidgets.QWidget.move
-
-    def _move_int(self, *args):
-        if len(args) == 2:
-            return _move(self, int(args[0]), int(args[1]))
-        return _move(self, *args)
-
-    QtWidgets.QWidget.move = _move_int
+    QtWidgets.QWidget.move = lambda self, *a: (
+        _move(self, int(a[0]), int(a[1])) if len(a) == 2 else _move(self, *a)
+    )
     try:
-        # OCC dumps OpenGL/driver chatter to the terminal while starting; hide it
-        with open(os.devnull, "w") as devnull, redirect_stdout(devnull), redirect_stderr(devnull):
+        with open(os.devnull, "w") as quiet, redirect_stdout(quiet), redirect_stderr(quiet):
             v = Viewer(backend="qt-pyqt5")
             for n, d in rg.nodes(data=True):
                 v.display(d["face"], color=FACE_COLORS[n % len(FACE_COLORS)])
                 v.display_text(ng.nodes[n]["sample"], str(n), height=25, color=(0.0, 0.0, 0.0))
             v.fit()
-        print("\nviewer: drag to rotate, scroll to zoom — close window to exit")
+
+        app = QtWidgets.QApplication.instance()
+        if app:
+            #quit window on suspension or termination
+            for s in (signal.SIGINT, signal.SIGTERM, signal.SIGTSTP, getattr(signal, "SIGHUP", None)):
+                if s is not None:
+                    signal.signal(s, lambda *_: app.quit())
+            app._tick = QtCore.QTimer(app)
+            app._tick.start(200)
+            app._tick.timeout.connect(lambda: None)
+
         v.show()
     finally:
         QtWidgets.QWidget.move = _move
