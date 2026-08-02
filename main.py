@@ -1,16 +1,36 @@
-from occwl.graph import face_adjacency
+from contextlib import redirect_stdout, redirect_stderr
+import argparse
+import math
+import os
+import sys
+
+import networkx as nx
+import numpy as np
 from occwl.compound import Compound
 from occwl.edge_data_extractor import EdgeDataExtractor
-import networkx as nx
-import math
-import numpy as np
+from occwl.graph import face_adjacency
+from occwl.viewer import Viewer
+from PyQt5 import QtWidgets
 
 
 #this is taking a super simple step file and turning it into an attributed adjacency 
 #graph - nodes are "faces," edges are what connects them. metadata about the two help us reason about the shape
 #in the future when we want to identify "features" and such
 
-#load the example step file. assert one solid and the file is "closed" (basically the file is a real shape)
+STEP_PATH = "cad-files/block.step"
+
+# distinct-ish colors so face ids in the viewer match the printed graph
+FACE_COLORS = [
+    (0.90, 0.30, 0.30),
+    (0.30, 0.70, 0.30),
+    (0.30, 0.45, 0.90),
+    (0.95, 0.70, 0.20),
+    (0.60, 0.30, 0.80),
+    (0.20, 0.75, 0.75),
+    (0.90, 0.45, 0.70),
+    (0.50, 0.50, 0.50),
+    (0.40, 0.70, 0.95),
+]
 
 
 def load_solid(step_path):
@@ -35,16 +55,38 @@ def load_solid(step_path):
     return solid
 
 
-def raw_graph():
-    # i know this file is hardcoded
-    solid = load_solid("cad-files/box.step")
+def raw_graph(solid):
     #turns the shape into an attributed adjacency graph. nodes are faces connected by edges -- both carry attributes
     #this is a directed graph, though, so it double counts edges. meaning edge faces(1,2) and edge faces(2,1) are counted twice
-    raw_graph = face_adjacency(solid)
-    if raw_graph is None:
+    graph = face_adjacency(solid)
+    if graph is None:
         raise ValueError("face_adjacency returned None — non-manifold or open shell")
+    return graph
 
-    return raw_graph
+
+def show_viewer(rg, ng):
+    """Rotatable window: each face colored + labeled with the same id as the printout."""
+    # pythonocc bug on some builds: centerOnScreen passes floats to QWidget.move
+    _move = QtWidgets.QWidget.move
+
+    def _move_int(self, *args):
+        if len(args) == 2:
+            return _move(self, int(args[0]), int(args[1]))
+        return _move(self, *args)
+
+    QtWidgets.QWidget.move = _move_int
+    try:
+        # OCC dumps OpenGL/driver chatter to the terminal while starting; hide it
+        with open(os.devnull, "w") as devnull, redirect_stdout(devnull), redirect_stderr(devnull):
+            v = Viewer(backend="qt-pyqt5")
+            for n, d in rg.nodes(data=True):
+                v.display(d["face"], color=FACE_COLORS[n % len(FACE_COLORS)])
+                v.display_text(ng.nodes[n]["sample"], str(n), height=25, color=(0.0, 0.0, 0.0))
+            v.fit()
+        print("\nviewer: drag to rotate, scroll to zoom — close window to exit")
+        v.show()
+    finally:
+        QtWidgets.QWidget.move = _move
 
 #The angle threshold below which two faces are called tangent instead of sharp is 5°
 TANGENT_TOL = math.radians(5)
@@ -104,9 +146,50 @@ def new_graph(rg):
     return ng
 
 
-rg = raw_graph()
-ng = new_graph(rg)
+def print_graph(ng):
+    print(f"{ng.number_of_nodes()} faces, {ng.number_of_edges()} edges\n")
 
-#checking if everything looks good
-print(dict(ng.nodes(data=True)))
-print(dict(ng.adj))
+    print("faces")
+    for n, d in sorted(ng.nodes(data=True)):
+        print(
+            f"  {n}: {d['stype']}  "
+            f"normal={d['normal']}  "
+            f"area={d['area']:.1f}  "
+            f"sample={d['sample']}  "
+            f"role={d['role']}  tad={d['tad']}  smr={d['smr']}"
+        )
+
+    print("\nedges")
+    for a, b, d in sorted(ng.edges(data=True)):
+        print(f"  {a}–{b}: convexity={d['convexity']}  length={d['length']:.1f}")
+
+
+def _reexec_macos_framework_python():
+    """Always run under conda’s framework Python when it exists (required for GUI on macOS)."""
+    framework = os.path.join(sys.prefix, "python.app", "Contents", "MacOS", "python")
+    if not os.path.isfile(framework):
+        return
+    # Don’t use realpath — it resolves python.app back to bin/python and skips the switch.
+    if "python.app" in sys.executable:
+        return
+    # pythonw sets PYTHONEXECUTABLE so the child would keep lying; drop it.
+    env = os.environ.copy()
+    env.pop("PYTHONEXECUTABLE", None)
+    os.execve(framework, [framework, *sys.argv], env)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Build attributed face graph from a STEP file")
+    parser.add_argument("--view", action="store_true", help="open rotatable 3D viewer after printing")
+    args = parser.parse_args()
+
+    if args.view:
+        _reexec_macos_framework_python()
+
+    solid = load_solid(STEP_PATH)
+    rg = raw_graph(solid)
+    ng = new_graph(rg)
+    print_graph(ng)
+
+    if args.view:
+        show_viewer(rg, ng)

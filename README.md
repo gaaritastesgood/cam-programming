@@ -9,13 +9,22 @@ conda env create -f environment.yml
 conda activate occwl
 ```
 
+**macOS only** — the 3D viewer needs an extra package (not in `environment.yml` because it doesn’t exist on Linux/Windows):
+
+```bash
+conda install python.app
+```
+
 ## Run
 
 ```bash
-python main.py
+python main.py           # print face/edge graph
+python main.py --view    # same, then open rotatable 3D viewer
 ```
 
-Expects `cad-files/block.step [OR] box.step` (included).
+With `--view`, faces are colored and labeled to match the printout. Close the window to exit.
+
+Expects `cad-files/block.step` (hardcoded; `box.step` is also included).
 
 ## What main.py does
 
@@ -33,3 +42,5 @@ Expects `cad-files/block.step [OR] box.step` (included).
 - [occwl](https://github.com/AutodeskAILab/occwl) — OpenCASCADE wrapper for B-rep traversal and adjacency graphs
 - networkx — graph data structure
 - numpy
+- pyqt — 3D viewer UI
+- python.app — macOS only; framework Python so the viewer can open
